@@ -1,12 +1,13 @@
 package com.library.boxpdigit.service;
 
 import com.library.boxpdigit.dto.BookInfoDto;
+import com.library.boxpdigit.dto.BookRequestDto;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -17,12 +18,11 @@ public class GoogleBooksService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    @Value("${google.books.api.key}")  // bu değeri application.properties'e ekleyeceğiz
+    @Value("${google.books.api.key}")
     private String apiKey;
 
     /**
-     * @param barcode ISBN-10 or ISBN-13
-     * @return BookInfoDto with book data, or null if not found
+     * Returns BookInfoDto from Google Books by barcode (ISBN)
      */
     public BookInfoDto fetchBookByBarcode(String barcode) throws Exception {
         String url = String.format(
@@ -34,7 +34,6 @@ public class GoogleBooksService {
             String jsonResponse = restTemplate.getForObject(url, String.class);
             return parseGoogleBooksResponse(jsonResponse, barcode);
         } catch (HttpClientErrorException.NotFound e) {
-            // Book not found
             return null;
         } catch (Exception e) {
             throw new Exception("Failed to fetch from Google Books: " + e.getMessage());
@@ -42,14 +41,32 @@ public class GoogleBooksService {
     }
 
     /**
-     * Parse JSON response from Google Books API
+     * Returns BookRequestDto (suitable for saving) by barcode.
+     * This uses fetchBookByBarcode and converts to BookRequestDto.
      */
+    public BookRequestDto fetchBookRequestDtoByBarcode(String barcode) throws Exception {
+        BookInfoDto info = fetchBookByBarcode(barcode);
+        if (info == null) {
+            return null;
+        }
+        BookRequestDto dto = new BookRequestDto();
+        dto.setTitle(info.getTitle());
+        dto.setAuthor(info.getAuthors());
+        dto.setPublisher(info.getPublisher());
+        dto.setPublicationYear(info.getPublishedYear());
+        dto.setGenre(info.getCategories());
+        dto.setBarcode(info.getBarcode());
+        dto.setThumbnailUrl(info.getThumbnail());
+        // shelfNumber ve totalCopies null kalır
+        return dto;
+    }
+
     private BookInfoDto parseGoogleBooksResponse(String json, String barcode) throws Exception {
         JsonNode root = objectMapper.readTree(json);
         JsonNode items = root.get("items");
 
         if (items == null || !items.isArray() || items.size() == 0) {
-            return null; // no results
+            return null;
         }
 
         JsonNode volumeInfo = items.get(0).get("volumeInfo");
@@ -86,5 +103,28 @@ public class GoogleBooksService {
         }
 
         return new BookInfoDto(title, authors, publisher, publishedYear, categories, thumbnail, barcode);
+    }
+
+    public BookRequestDto fetchBookInfoByBarcode(String barcode) throws Exception {
+        // method fetchBookByBarcode is returns BookInfoDto 
+        BookInfoDto bookInfo = fetchBookByBarcode(barcode);
+        
+        if (bookInfo == null) {
+            return null;
+        }
+        
+       
+        //create BookRequestDto from BookInfoDto
+        BookRequestDto requestDto = new BookRequestDto();
+        requestDto.setTitle(bookInfo.getTitle());
+        requestDto.setAuthor(bookInfo.getAuthors());
+        requestDto.setPublisher(bookInfo.getPublisher());
+        requestDto.setPublicationYear(bookInfo.getPublishedYear());
+        requestDto.setGenre(bookInfo.getCategories());
+        requestDto.setBarcode(bookInfo.getBarcode());
+        requestDto.setThumbnailUrl(bookInfo.getThumbnail());
+        
+       //note: shelfNumber and totalCopies are filled by frontend or admin
+        return requestDto;
     }
 }
