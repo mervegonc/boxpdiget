@@ -19,4 +19,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     
     // Find user by student number (optional)
     Optional<User> findByStudentNumber(String studentNumber);
+    
 }
