@@ -59,4 +59,37 @@ public class BookService {
         dto.setThumbnailUrl(book.getThumbnailUrl());
         return dto;
     }
+
+    @Transactional
+public void deleteBook(Long id) {
+    Book book = bookRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Book not found with id: " + id));
+    // İsteğe bağlı: Eğer kitap ödünçteyse silmeyi engelleyebilirsin.
+    // Basitçe siliyoruz.
+    bookRepository.delete(book);
+}
+
+@Transactional
+public BookResponseDto updateBook(Long id, BookRequestDto dto) {
+    Book book = bookRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Book not found with id: " + id));
+    
+    book.setTitle(dto.getTitle());
+    book.setAuthor(dto.getAuthor());
+    book.setPublisher(dto.getPublisher());
+    book.setPublicationYear(dto.getPublicationYear());
+    book.setGenre(dto.getGenre());
+    book.setBarcode(dto.getBarcode());
+    book.setShelfNumber(dto.getShelfNumber());
+    book.setTotalCopies(dto.getTotalCopies());
+    // availableCopies mantığını düşün: totalCopies azaldıysa available da düşer mi?
+    // Basitçe mevcut availableCopies'i koruyoruz ama total'den büyük olamaz.
+    if (book.getAvailableCopies() > book.getTotalCopies()) {
+        book.setAvailableCopies(book.getTotalCopies());
+    }
+    book.setThumbnailUrl(dto.getThumbnailUrl());
+    
+    Book updated = bookRepository.save(book);
+    return mapToResponseDto(updated);
+}
 }
